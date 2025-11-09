@@ -198,6 +198,44 @@ The device should respond with JSON data containing:
 }
 ```
 
+## Additional Services (Home Assistant)
+
+This integration now provides several additional services to control scheduler, messages, storage and to fetch raw display data. Use them from Developer Tools → Services or in automations.
+
+- `ikea_obegraensad.set_schedule` — set a schedule. Data: `schedule` (JSON or list of objects). Example:
+
+```yaml
+service: ikea_obegraensad.set_schedule
+data:
+  schedule:
+    - pluginId: 3
+      duration: 30
+    - pluginId: 5
+      duration: 60
+```
+
+- `ikea_obegraensad.clear_schedule`, `ikea_obegraensad.start_schedule`, `ikea_obegraensad.stop_schedule` — control schedule lifecycle.
+
+- `ikea_obegraensad.add_message` — add a display message. Data: `text` (required), optional `repeat`, `id`, `delay`, `graph` (list), `miny`, `maxy`.
+
+```yaml
+service: ikea_obegraensad.add_message
+data:
+  text: "Hello"
+  repeat: 1
+  id: 99
+```
+
+- `ikea_obegraensad.remove_message` — remove message by `id`.
+
+- `ikea_obegraensad.clear_storage` — clear device storage (if supported by firmware).
+
+- `ikea_obegraensad.get_data` — fetch raw framebuffer (`/api/data`) and save it to Home Assistant config directory as `ikea_obegraensad_data.bin`.
+
+Additionally, a UI Button entity `Persist Plugin` is available to persist the current plugin on the device (same as the `persist_plugin` service).
+
+These services are implemented using the device HTTP API (where applicable) or WebSocket for real-time commands.
+
 ## Troubleshooting
 
 ### Connection Issues

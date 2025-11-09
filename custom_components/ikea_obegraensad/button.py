@@ -29,6 +29,8 @@ async def async_setup_entry(
         IkeaLedRotateLeftButton(coordinator, entry),
         IkeaLedRotateRightButton(coordinator, entry),
     ]
+    # Add persist plugin button for easier UI access
+    buttons.append(IkeaLedPersistPluginButton(coordinator, entry))
     
     async_add_entities(buttons)
 
@@ -113,3 +115,26 @@ class IkeaLedRotateRightButton(IkeaLedBaseButton):
             await self.coordinator.async_refresh_after_command()
         except Exception as ex:
             _LOGGER.error("Failed to rotate right: %s", ex)
+
+
+class IkeaLedPersistPluginButton(IkeaLedBaseButton):
+    """Button to persist the currently active plugin on device."""
+
+    def __init__(self, coordinator: IkeaLedCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            "persist_plugin",
+            "Persist Plugin",
+            "mdi:content-save"
+        )
+
+    async def async_press(self) -> None:
+        try:
+            await self.hass.async_add_executor_job(
+                self.coordinator.persist_plugin
+            )
+            # Gentle refresh
+            await self.coordinator.async_refresh_after_command()
+        except Exception as ex:
+            _LOGGER.error("Failed to persist plugin: %s", ex)

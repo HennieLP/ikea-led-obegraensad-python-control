@@ -40,9 +40,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Test connection
             try:
                 await self._test_connection(host)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
-                errors["base"] = e
+                # Use a serializable error code for the UI
+                errors["base"] = "cannot_connect"
             else:
                 # Check if already configured
                 await self.async_set_unique_id(host)
@@ -71,8 +72,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Give it time to establish WebSocket connection
             await asyncio.sleep(3)
             
-            # Try to get initial data
-            await test_coordinator.async_config_entry_first_refresh()
+            # Try to get initial data: use async_refresh to avoid ConfigEntryError
+            await test_coordinator.async_refresh()
             
             # Check if we got valid data
             if not test_coordinator.data or not isinstance(test_coordinator.data, dict):

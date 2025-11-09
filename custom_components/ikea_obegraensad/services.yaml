@@ -1,0 +1,123 @@
+persist_plugin:
+  description: "Persist plugin on device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      example: "192.168.1.42"
+      selector:
+        text: {}
+
+set_schedule:
+  description: "Set the device schedule. Provide schedule data (JSON or other) as text."
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      example: "192.168.1.42"
+      selector:
+        text: {}
+    schedule:
+      description: "Schedule data (JSON string or other). Use multiline for long payloads."
+      selector:
+        text:
+          multiline: true
+
+clear_schedule:
+  description: "Clear schedule on device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+
+start_schedule:
+  description: "Start schedule on device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+
+stop_schedule:
+  description: "Stop schedule on device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+
+add_message:
+  description: "Add a message / graph to the device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+    text:
+      description: "Message text"
+      selector:
+        text:
+          multiline: true
+    repeat:
+      description: "How often to repeat the message"
+      selector:
+        number:
+          min: 1
+          max: 1000
+    id:
+      description: "Message id (optional, 0 for automatic)"
+      selector:
+        number:
+          min: 0
+          max: 65535
+    delay:
+      description: "Delay between frames (ms)"
+      selector:
+        number:
+          min: 0
+          max: 10000
+    graph:
+      description: "Graph data as JSON array or CSV string (use a single-line or short text)"
+      selector:
+        text: {}
+    miny:
+      description: "Graph min Y"
+      selector:
+        number:
+          min: -32768
+          max: 32767
+    maxy:
+      description: "Graph max Y"
+      selector:
+        number:
+          min: -32768
+          max: 32767
+
+remove_message:
+  description: "Remove a message by id"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+    id:
+      description: "ID of the message to remove"
+      selector:
+        number:
+          min: 0
+          max: 65535
+
+clear_storage:
+  description: "Clear storage on device"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}
+
+get_data:
+  description: "Fetch device binary data and save to Home Assistant config directory"
+  fields:
+    host:
+      description: "Optional host to pick a specific device"
+      selector:
+        text: {}

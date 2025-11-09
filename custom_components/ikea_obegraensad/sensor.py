@@ -134,14 +134,20 @@ class IkeaLedActivePluginSensor(IkeaLedBaseSensor):
         """Return extra state attributes."""
         if not self.coordinator.data:
             return None
-            
-        return {
+        attrs = {
             "plugin_id": self.coordinator.data.get("plugin"),
             "available_plugins": [
                 {"id": plugin.get("id"), "name": plugin.get("name", "Unknown")}
                 for plugin in self.coordinator.data.get("plugins", [])
             ],
         }
+
+        # Include persisted plugin id if the device reports it
+        persisted = self.coordinator.data.get("persistPlugin")
+        if persisted is not None:
+            attrs["persisted_plugin_id"] = persisted
+
+        return attrs
 
 
 class IkeaLedScheduleStatusSensor(IkeaLedBaseSensor):

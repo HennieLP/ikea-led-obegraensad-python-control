@@ -10,8 +10,10 @@ from datetime import timedelta
 from typing import Any, Dict, Optional
 
 import websockets
+import aiohttp
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 
@@ -32,6 +34,8 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "brightness": 0,
             "rotation": 0,
             "plugin": None,
+            # persisted plugin id if device reports it
+            "persistPlugin": None,
             "scheduleActive": False,
             "schedule": [],
             "plugins": []
@@ -135,8 +139,28 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._state["schedule"] = data["schedule"]
                 if "plugins" in data:
                     self._state["plugins"] = data["plugins"]
+                if "persist-plugin" in data:
+                    # firmware sends 'persist-plugin' (hyphen); store under persistPlugin
+                    self._state["persistPlugin"] = data["persist-plugin"]
         except json.JSONDecodeError as ex:
             _LOGGER.warning("Error parsing WebSocket message: %s", ex)
+
+    async def async_get_data(self) -> bytes | None:
+        """Fetch raw render buffer from device via HTTP `GET /api/data`.
+
+        Returns raw bytes on success, or None on failure.
+        """
+        url = f"{self.base_url}/data"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=15) as resp:
+                if resp.status == 200:
+                    return await resp.read()
+                _LOGGER.debug("GET %s returned status %s", url, resp.status)
+                return None
+        except Exception as ex:
+            _LOGGER.debug("Failed to fetch data from %s: %s", url, ex)
+            return None
 
     async def _send_ws_message(self, data: Dict[str, Any]):
         """Send a message through the WebSocket connection."""
@@ -225,6 +249,16 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "direction": direction
         })
 
+    def persist_plugin(self) -> None:
+        """Persist the currently active plugin on the device.
+
+        This triggers the device to save the active plugin as the persisted choice
+        (handled by the firmware's pluginManager.persistActivePlugin()).
+        """
+        self._send_ws_command({
+            "event": "persist-plugin"
+        })
+
     # State Access Methods
     def get_brightness(self) -> int:
         """Get the current brightness value (0-255)."""
@@ -265,3 +299,90 @@ class IkeaLedCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Shutdown coordinator."""
         self.ws_connected = False
         _LOGGER.info("Shutting down IKEA LED coordinator")
+
+    # --- HTTP helper methods to call firmware API endpoints ---
+    async def async_set_schedule(self, schedule_json: str) -> bool:
+        """Send schedule JSON string to device via HTTP POST.
+
+        The firmware expects form-data with key 'schedule'. Returns True on success.
+        """
+        url = f"{self.base_url}/schedule"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.post(url, data={"schedule": schedule_json}, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to set schedule via %s: %s", url, ex)
+            return False
+
+    async def async_clear_schedule(self) -> bool:
+        url = f"{self.base_url}/schedule/clear"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to clear schedule: %s", ex)
+            return False
+
+    async def async_start_schedule(self) -> bool:
+        url = f"{self.base_url}/schedule/start"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to start schedule: %s", ex)
+            return False
+
+    async def async_stop_schedule(self) -> bool:
+        url = f"{self.base_url}/schedule/stop"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to stop schedule: %s", ex)
+            return False
+
+    async def async_add_message(self, text: str, repeat: int = 1, id: int = 0, delay: int = 50, graph: list | None = None, miny: int = 0, maxy: int = 15) -> bool:
+        """Add a message via the HTTP API. graph is a list of ints converted to CSV string."""
+        url = f"{self.base_url}/message"
+        params = {
+            "text": text,
+            "repeat": str(repeat),
+            "id": str(id),
+            "delay": str(delay),
+            "miny": str(miny),
+            "maxy": str(maxy),
+        }
+        if graph:
+            params["graph"] = ",".join(str(x) for x in graph)
+
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, params=params, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to add message: %s", ex)
+            return False
+
+    async def async_remove_message(self, id: int) -> bool:
+        url = f"{self.base_url}/removemessage"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, params={"id": str(id)}, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to remove message: %s", ex)
+            return False
+
+    async def async_clear_storage(self) -> bool:
+        url = f"{self.base_url}/storage/clear"
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=10) as resp:
+                return resp.status == 200
+        except aiohttp.ClientError as ex:
+            _LOGGER.debug("Failed to clear storage: %s", ex)
+            return False
